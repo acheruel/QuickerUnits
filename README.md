@@ -4,7 +4,7 @@ Unit converter built for civil and structural engineering, in English and French
 
 **Version 0.5 · Anthony Chéruel · 2026-10-10**
 
-**Live app:** https://acfakkoh.github.io/QuickerUnits/
+**Live app:** https://acheruel.github.io/QuickerUnits/
 
 ## Concept
 
