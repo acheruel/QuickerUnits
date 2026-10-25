@@ -67,6 +67,7 @@ sup{font-size:.68em;line-height:0}
 .cmd-act{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:3px 11px;font-size:.78rem;font-weight:600;transition:background .15s,border-color .15s}
 .cmd-act:hover{background:#e6f6f3;border-color:#0a8f84;color:#006b62}
 .cmd-hint{font-size:.74rem;color:#93a7b1;margin-left:auto}
+.cmd-alt{font-size:.85rem;color:var(--muted);margin-left:10px}
 .cmd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .cmd-chip{border:1px solid var(--line);background:#fff;border-radius:7px;padding:4px 9px;font-size:.84rem;color:var(--ink);font-variant-numeric:tabular-nums;cursor:copy;transition:background .15s,border-color .15s}
 .cmd-chip:hover{background:#eef8f5;border-color:#a9dccd}
@@ -189,6 +190,8 @@ footer b{color:var(--ink);font-weight:600}
     <div class="toolbar rv" style="--d:.16s">
       <div class="tip" data-i18n-html="tip"></div>
       <div class="tools">
+        <span class="label" data-i18n="ftinLabel"></span>
+        <div class="segmented" id="ftin" role="group"><button type="button" data-m="dec"></button><button type="button" data-m="plan"></button></div>
         <button class="chip" id="fx-toggle" type="button" aria-pressed="true"><span>×</span><span data-i18n="factors"></span></button>
         <button class="chip" id="reset" type="button" data-i18n="reset"></button>
       </div>
@@ -219,7 +222,7 @@ const IN = 0.0254, FT = 0.3048, MI = 1609.344;   // m (exact, 1959)
 const LB = 0.45359237, OZ = LB / 16;                          // kg (exact)
 const LBF = LB * G, KIP = 1000 * LBF;                         // N
 const ARPENT2 = 3418.89;           // arpent carré (Québec) ≈ m²
-const QU_META = { version: "0.6", date: "2026-10-25", author: "Anthony Chéruel" };
+const QU_META = { version: "0.6.5", date: "2026-10-25", author: "Anthony Chéruel" };
 
 /* ===================== i18n ===================== */
 const T = {
@@ -237,7 +240,12 @@ const T = {
     source: "◆ case source",
     copied: "Copié",
     cleared: "Colonne vidée",
-    cmdPh: "Conversion rapide — ex. 25 ksi en MPa · 3/4 po · 100 °C en °F",
+    cmdPh: "Conversion rapide — ex. 25 ksi en MPa · 5'-6 ½\" en mm · 100 °C en °F",
+    ftinLabel: "pi-po",
+    ftinDec: "1,969 pi", ftinPlan: "1′-11⅝″",
+    ftinDecTip: "Pieds et pouces en notation décimale",
+    ftinPlanTip: "Pieds et pouces comme sur les plans, au 1/16″ près. Les deux notations sont acceptées en saisie (5'-6 1/2\", 66,5).",
+    ftinGroup: "Notation des pieds et pouces",
     cmdOpen: c => `Ouvrir dans ${c}`,
     cmdCopy: "Copier",
     cmdEnter: "Entrée : ouvrir la colonne",
@@ -266,7 +274,12 @@ const T = {
     source: "◆ source box",
     copied: "Copied",
     cleared: "Column cleared",
-    cmdPh: "Quick convert — e.g. 25 ksi to MPa · 3/4 in · 100 °C to °F",
+    cmdPh: "Quick convert — e.g. 25 ksi to MPa · 5'-6 ½\" to mm · 100 °C to °F",
+    ftinLabel: "ft-in",
+    ftinDec: "1.969 ft", ftinPlan: "1′-11⅝″",
+    ftinDecTip: "Feet and inches as decimals",
+    ftinPlanTip: "Feet and inches as on drawings, to the nearest 1/16″. Both notations are accepted when typing (5'-6 1/2\", 66.5).",
+    ftinGroup: "Feet-inches notation",
     cmdOpen: c => `Open in ${c}`,
     cmdCopy: "Copy",
     cmdEnter: "Enter: open the column",
@@ -430,6 +443,7 @@ const S = {
   lang: saved.lang || (navFr ? "fr" : "en"),
   prec: "auto",
   fx: saved.fx5 !== false,
+  plan: saved.plan === true,                // feet-inches in drawing notation
   bonus: !!saved.bonus,
   bible: saved.bible !== false,
   vals: {}                                  // gid -> {u, v (base value or null)}
@@ -447,7 +461,7 @@ if (saved.vals) Object.entries(saved.vals).forEach(([gid, s]) => {
 let saveTimer;
 function persist() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => store.set({ lang: S.lang, fx5: S.fx, bonus: S.bonus, bible: S.bible, vals: S.vals }), 250);
+  saveTimer = setTimeout(() => store.set({ lang: S.lang, fx5: S.fx, plan: S.plan, bonus: S.bonus, bible: S.bible, vals: S.vals }), 250);
 }
 
 /* ===================== maths ===================== */
@@ -490,13 +504,11 @@ function sci(x, n, lang) {
   const exp = String(+e).split("").map(c => TOSUP[c] || c).join("");
   return `${localize(m, lang)} × 10${exp}`;
 }
-/* factor for captions: 6 s.f. */
+/* factor for captions: same rule as the boxes, scientific from 10⁷ (narrow caption) */
 function fmtFactor(x, lang = S.lang) {
   if (!Number.isFinite(x)) return "";
-  const a = Math.abs(x);
-  if (a !== 0 && (a >= 1e9 || a < 1e-5)) return sci(x, 4, lang);
-  const dec = a >= 1 ? Math.max(0, 6 - (Math.floor(Math.log10(a)) + 1)) : 5 - Math.floor(Math.log10(a));
-  return localize(trimZeros(x.toFixed(dec)), lang);
+  if (Math.abs(x) >= 1e7) return sci(x, 4, lang);
+  return fmt(x, lang, "auto");
 }
 
 /* safe arithmetic parser: + − × / ^ ( ) and scientific notation */
@@ -543,13 +555,83 @@ function parse(raw, lang = S.lang) {
     return v;
   } catch { return NaN; }
 }
-const isExpression = raw => /[0-9.,)][\s]*[+\-*/×÷^(]|^\(|π|pi/i.test(String(raw).replace(/[eE][-+]/g, ""));
+/* ===================== feet-inches (drawing notation) ===================== */
+const FTIN_D = 16;                                   // drawings: nearest 1/16″
+const VULGAR = { "1/2": "½", "1/4": "¼", "3/4": "¾", "1/8": "⅛", "3/8": "⅜", "5/8": "⅝", "7/8": "⅞" };
+const UNVULGAR = Object.fromEntries(Object.entries(VULGAR).map(([k, v]) => [v, k]));
+const TOSUB = { "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉" };
+const SUBMAP = Object.fromEntries(Object.entries(TOSUB).map(([k, v]) => [v, k]));
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
+function frac(n, d) {
+  if (!n) return "";
+  const k = gcd(n, d); n /= k; d /= k;
+  return VULGAR[`${n}/${d}`] || [...String(n)].map(c => TOSUP[c]).join("") + "⁄" + [...String(d)].map(c => TOSUB[c]).join("");
+}
+const isFtIn = (gid, uid) => gid === "length" && (uid === "in" || uid === "ft");
+const planRounded = inches => Math.abs(Math.abs(inches) * FTIN_D - Math.round(Math.abs(inches) * FTIN_D)) > 1e-6;
+/* inches → 1′-11⅝″ (ft box) or 23⅝″ (in box); below 1/32″ or huge: decimal */
+function fmtPlan(inches, uid, lang = S.lang) {
+  if (inches == null || !Number.isFinite(inches)) return "";
+  const a = Math.abs(inches), sign = inches < 0 ? "−" : "";
+  if ((a > 0 && a < 1 / (2 * FTIN_D)) || a >= 1e8) return fmt(inches, lang) + "″";
+  const n = Math.round(a * FTIN_D);
+  const whole = Math.floor(n / FTIN_D), f = frac(n % FTIN_D, FTIN_D);
+  if (uid === "in") return `${sign}${whole || !f ? localize(String(whole), lang) : ""}${f}″`;
+  return `${sign}${localize(String(Math.floor(whole / 12)), lang)}′-${whole % 12}${f}″`;
+}
+
+/* ⅝ and ¹⁵⁄₁₆ → " 5/8", " 15/16" */
+function normFrac(raw) {
+  return String(raw)
+    .replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹]+)⁄([₀₁₂₃₄₅₆₇₈₉]+)/g, (_, n, d) => ` ${[...n].map(c => SUPMAP[c]).join("")}/${[...d].map(c => SUBMAP[c]).join("")}`)
+    .replace(/[½¼¾⅛⅜⅝⅞]/g, c => ` ${UNVULGAR[c]}`)
+    .replace(/⁄/g, "/");
+}
+/* mixed numbers "11 5/8" (denominator 2 to 64), otherwise the arithmetic parser */
+function parseNum(raw, lang = S.lang) {
+  const s = normFrac(raw).trim();
+  const m = /^([-−+]?)\s*(\d+(?:[.,]\d+)?)\s+(\d+)\s*\/\s*(\d+)$/.exec(s);
+  if (m && [2, 4, 8, 16, 32, 64].includes(+m[4]) && +m[3] < +m[4])
+    return (m[1] === "-" || m[1] === "−" ? -1 : 1) * (parse(m[2], lang) + m[3] / m[4]);
+  return parse(s, lang);
+}
+/* 5'-6 1/2", 5' 6.5", 5', 66½", 1′-11⅝″ → inches · undefined without a foot/inch mark */
+function parseFtIn(raw, lang = S.lang) {
+  let s = normFrac(raw).replace(/[’′‘`´]/g, "'").replace(/''|[”″“]/g, '"').trim();
+  if (!/['"]/.test(s)) return undefined;
+  const neg = /^[-−]/.test(s);
+  s = s.replace(/^[-−+]\s*/, "");
+  const q = s.indexOf("'");
+  let ft = 0, rest = s;
+  if (q >= 0) {
+    if (!s.slice(0, q).trim()) return NaN;
+    ft = parseNum(s.slice(0, q), lang); rest = s.slice(q + 1);
+  }
+  rest = rest.replace(/^\s*-\s*/, "").replace(/"\s*$/, "").trim();
+  if (/['"]/.test(rest)) return NaN;
+  const inch = rest ? parseNum(rest, lang) : 0;
+  if (ft == null || inch == null || Number.isNaN(ft) || Number.isNaN(inch)) return NaN;
+  return (neg ? -1 : 1) * (ft * 12 + inch);
+}
+/* value typed in a box, in that box's unit */
+function parseCell(raw, gid, uid) {
+  if (isFtIn(gid, uid)) { const i = parseFtIn(raw); if (i !== undefined) return uid === "ft" ? i / 12 : i; }
+  return parseNum(raw);
+}
+
+const isExpression = raw =>/[0-9.,)][\s]*[+\-*/×÷^(]|^\(|π|pi/i.test(String(raw).replace(/[eE][-+]/g, ""));
 
 /* ===================== DOM helpers ===================== */
 const $ = s => document.querySelector(s);
 const t = k => T[S.lang][k];
 const sym = unit => unit.s[S.lang];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+/* text of a value in a unit: drawing notation for in/ft when chosen, engineering s.f. otherwise */
+function showVal(gid, unit, base, prec = S.prec, plan = S.plan) {
+  if (base == null) return "";
+  return plan && isFtIn(gid, unit.id) ? fmtPlan(base / IN, unit.id) : fmt(fromBase(unit, base), S.lang, prec);
+}
+const withSym = (gid, unit, txt, plan = S.plan) => plan && isFtIn(gid, unit.id) ? txt : `${txt} ${sym(unit)}`;
 
 let toastTimer;
 function toast(html) {
@@ -576,6 +658,14 @@ function renderStatic() {
   $("#lang-fr").classList.toggle("selected", S.lang === "fr");
   $("#lang-en").classList.toggle("selected", S.lang === "en");
   $("#fx-toggle").setAttribute("aria-pressed", String(S.fx));
+  $("#ftin").setAttribute("aria-label", t("ftinGroup"));
+  document.querySelectorAll("#ftin button").forEach(b => {
+    const plan = b.dataset.m === "plan";
+    b.textContent = t(plan ? "ftinPlan" : "ftinDec");
+    b.title = t(plan ? "ftinPlanTip" : "ftinDecTip");
+    b.classList.toggle("active", plan === S.plan);
+    b.setAttribute("aria-pressed", String(plan === S.plan));
+  });
   document.body.classList.toggle("nofx", !S.fx);
   updateMore();
   renderBible();
@@ -640,10 +730,16 @@ function refresh(gid, skipUnit, initial) {
     const isSrc = unit.id === st.u;
     r.row.classList.toggle("src", isSrc && st.v != null);
     if (unit.id !== skipUnit) {
-      r.input.value = st.v == null ? "" : fmt(fromBase(unit, st.v), S.lang, isSrc ? "6" : S.prec);
+      r.input.value = st.v == null ? "" : showVal(gid, unit, st.v, isSrc ? "6" : S.prec);
       r.row.classList.remove("err");
     }
-    r.fx.textContent = isSrc ? (st.v == null ? "" : t("source")) : caption(src, unit);
+    if (S.plan && isFtIn(gid, unit.id) && st.v != null) {
+      /* drawing notation in the box, decimal value underneath */
+      const exact = `${fmt(fromBase(unit, st.v), S.lang, isSrc ? "6" : S.prec)} ${sym(unit)}`;
+      const rounded = planRounded(st.v / IN);
+      r.fx.textContent = isSrc ? (rounded ? `◆ = ${exact}` : t("source")) : `${rounded ? "≈" : "="} ${exact}`;
+    } else r.fx.textContent = isSrc ? (st.v == null ? "" : t("source")) : caption(src, unit);
+    if (isFtIn(gid, unit.id)) r.input.title = st.v == null ? "" : withSym(gid, unit, showVal(gid, unit, st.v, S.prec, !S.plan), !S.plan);
   });
   movePill(gid, initial);
 }
@@ -653,7 +749,9 @@ function caption(src, unit) {
   if (typeof src.f === "number" && typeof unit.f === "number") return `1 ${sym(src)} = ${fmtFactor(src.f / unit.f)} ${sym(unit)}`;
   const b = fromBase(unit, toBase(src, 0)), a = fromBase(unit, toBase(src, 1)) - b;
   const A = Math.abs(a - 1) < 1e-12 ? "" : ` × ${fmtFactor(a)}`;
-  const B = Math.abs(b) < 1e-12 ? "" : ` ${b < 0 ? "−" : "+"} ${fmtFactor(Math.abs(b))}`;
+  /* exact offsets (32, 273,15, 459,67) stay exact, derived ones follow the rule */
+  const ab = Math.abs(b), exact = Math.abs(ab * 100 - Math.round(ab * 100)) < 1e-9;
+  const B = ab < 1e-12 ? "" : ` ${b < 0 ? "−" : "+"} ${exact ? localize(trimZeros(ab.toFixed(2)), S.lang) : fmtFactor(ab)}`;
   return `${sym(unit)} = ${sym(src)}${A}${B}`;
 }
 
@@ -685,7 +783,7 @@ document.addEventListener("input", e => {
   if (!e.target.matches(".row input")) return;
   const { gid, uid, row } = locate(e.target);
   const unit = GROUPS[gid].g.units.find(x => x.id === uid);
-  const v = parse(e.target.value);
+  const v = parseCell(e.target.value, gid, uid);
   const st = S.vals[gid];
   if (v === null) { st.u = uid; st.v = null; refresh(gid, uid); persist(); return; }
   if (Number.isNaN(v)) { row.classList.add("err"); return; }
@@ -701,11 +799,15 @@ document.addEventListener("focusout", e => {
   const { gid, uid, row } = locate(e.target);
   const st = S.vals[gid];
   if (row.classList.contains("err")) { row.classList.remove("err"); refresh(gid); return; }
-  if (st.u === uid && st.v != null && isExpression(e.target.value)) {
-    const unit = GROUPS[gid].g.units.find(x => x.id === uid);
-    const shown = fmt(fromBase(unit, st.v), S.lang, "6");
-    toast(`${t("computed")} : <b>${esc(e.target.value.trim())}</b> = ${shown} ${esc(sym(unit))}`);
-    e.target.value = shown;
+  if (st.u !== uid || st.v == null) return;
+  const raw = e.target.value;
+  const ftin = isFtIn(gid, uid), expr = isExpression(raw) && !(ftin && /['"′″’”]/.test(raw));
+  if (!expr && !(ftin && S.plan)) return;
+  const unit = GROUPS[gid].g.units.find(x => x.id === uid);
+  const shown = showVal(gid, unit, st.v, "6");
+  e.target.value = shown;                     // drawing mode: 5'6.5 → 5′-6½″
+  if (expr) {
+    toast(`${t("computed")} : <b>${esc(raw.trim())}</b> = ${esc(withSym(gid, unit, shown))}`);
     row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash");
   }
 });
@@ -731,7 +833,7 @@ document.addEventListener("click", e => {
     const val = ROWS[gid].rows[uid].input.value;
     if (!val) return;
     const unit = GROUPS[gid].g.units.find(x => x.id === uid);
-    const text = `${val} ${sym(unit)}`;
+    const text = withSym(gid, unit, val);
     const done = () => toast(`${t("copied")} : <b>${esc(text)}</b>`);
     if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
     else fallbackCopy(text, done);
@@ -786,6 +888,11 @@ function toggleBonus(force) {
 $("#more").addEventListener("click", () => toggleBonus());
 $("#fx-toggle").addEventListener("click", () => {
   S.fx = !S.fx; renderStatic(); moveAllPills(false); persist();
+});
+$("#ftin").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b || (b.dataset.m === "plan") === S.plan) return;
+  S.plan = b.dataset.m === "plan"; renderStatic(); refresh("length"); persist();
 });
 $("#reset").addEventListener("click", () => {
   defaults(); Object.keys(GROUPS).forEach(gid => refresh(gid)); persist(); toast(t("resetDone"));
@@ -849,15 +956,23 @@ const UNIT_TOK = `[A-Za-zµ°"'][^\\s]*(?:\\s(?:US|UK))?`;
 const POW_TOK = `(?:10(?:[⁶³]|\\^?[63])\\s?)?${UNIT_TOK}`;     // CISC "10⁶ mm⁴", "10³ mm³"
 const mkCmdRe = tok => new RegExp(`^(.*?)\\s*(${tok})\\s*(?:(?:en|to|in|vers|→|->|=>|=)\\s*(${tok}))?\\s*$`);
 const CMD_RES = [mkCmdRe(POW_TOK), mkCmdRe(UNIT_TOK)];
+/* feet-inches typed on their own: 5'-6 1/2" en mm */
+const CMD_SPLIT = /^(.*?)(?:\s+(?:en|to|in|vers)\s+|\s*(?:→|->|=>|=)\s*)([^\s'"′″]\S*(?:\s(?:US|UK))?)$/;
+const FTIN_ONLY = /^[\s\d.,\-−+\/'"′″’”½¼¾⅛⅜⅝⅞⁰¹²³⁴⁵⁶⁷⁸⁹⁄₀₁₂₃₄₅₆₇₈₉]+$/;
 function runCommand(raw) {
   const text = raw.trim();
   if (!text) return null;
+  const sp = CMD_SPLIT.exec(text), left = sp ? sp[1] : text;
+  if (/['"′″’”]/.test(left) && FTIN_ONLY.test(left)) {
+    const inches = parseFtIn(left);
+    if (Number.isFinite(inches)) return resolveCommand(inches, [UNIT_INDEX.find(x => x.gid === "length" && x.unit.id === "in")], sp && sp[2]);
+  }
   /* try the CISC-prefixed reading first, fall back to the plain one ("2*10³ mm") */
   let m = null, value = null;
   for (const re of CMD_RES) {
     const k = re.exec(text);
     if (!k || !k[1].trim()) continue;
-    const v = parse(k[1]);
+    const v = parseNum(k[1]);
     if (v == null || Number.isNaN(v)) continue;
     if (findUnits(k[2]).length) { m = k; value = v; break; }
     if (!m) { m = k; value = v; }
@@ -866,6 +981,9 @@ function runCommand(raw) {
   const [, , srcTok, dstTok] = m;
   const srcs = findUnits(srcTok);
   if (!srcs.length) return { error: t("cmdUnknown")(srcTok) };
+  return resolveCommand(value, srcs, dstTok);
+}
+function resolveCommand(value, srcs, dstTok) {
   if (!dstTok) return { value, src: srcs[0] };
   const dsts = findUnits(dstTok);
   if (!dsts.length) return { error: t("cmdUnknown")(dstTok) };
@@ -882,18 +1000,21 @@ function renderCommand() {
   const { value, src, dst } = res;
   const base = toBase(src.unit, value);
   const colName = esc(src.cat.name[S.lang]);
-  const srcTxt = `${fmt(value, S.lang, "6")} ${sym(src.unit)}`;
+  const srcTxt = withSym(src.gid, src.unit, showVal(src.gid, src.unit, base, "6"));
+  const unitTxt = (gid, x) => S.plan && isFtIn(gid, x.id) ? "" : esc(sym(x));
   const open = `<button type="button" class="cmd-act" data-cmd="open">${t("cmdOpen")(colName)} →</button><span class="cmd-hint">${t("cmdEnter")}</span>`;
   if (dst) {
-    const v = fmt(fromBase(dst.unit, base));
-    res.copy = `${v} ${sym(dst.unit)}`;
-    out.innerHTML = `<div class="cmd-main"><span class="cmd-eq">${esc(srcTxt)} = <b>${esc(v)}</b> ${esc(sym(dst.unit))}</span>
+    const v = showVal(dst.gid, dst.unit, base);
+    res.copy = withSym(dst.gid, dst.unit, v);
+    /* feet-inches: the other notation alongside */
+    const alt = isFtIn(dst.gid, dst.unit.id) ? `<small class="cmd-alt">${esc(withSym(dst.gid, dst.unit, showVal(dst.gid, dst.unit, base, S.prec, !S.plan), !S.plan))}</small>` : "";
+    out.innerHTML = `<div class="cmd-main"><span class="cmd-eq">${esc(srcTxt)} = <b>${esc(v)}</b> ${unitTxt(dst.gid, dst.unit)}${alt}</span>
       <button type="button" class="cmd-act" data-cmd="copy">${t("cmdCopy")}</button>${open}</div>`;
   } else {
     const { g } = GROUPS[src.gid];
     const chips = g.units.filter(x => x.id !== src.unit.id).map(x => {
-      const v = fmt(fromBase(x, base));
-      return `<button type="button" class="cmd-chip ${g.si.includes(x) ? "si" : "imp"}" data-copy="${esc(v + " " + sym(x))}">${esc(v)}<small>${esc(sym(x))}</small></button>`;
+      const v = showVal(src.gid, x, base);
+      return `<button type="button" class="cmd-chip ${g.si.includes(x) ? "si" : "imp"}" data-copy="${esc(withSym(src.gid, x, v))}">${esc(v)}<small>${unitTxt(src.gid, x)}</small></button>`;
     }).join("");
     out.innerHTML = `<div class="cmd-main"><span class="cmd-eq">${esc(srcTxt)} =</span>${open}</div><div class="cmd-chips">${chips}</div>`;
   }
@@ -948,7 +1069,7 @@ arrive();
 </style>
 <script>
 (() => {
-  const MINE = "0.6";
+  const MINE = "0.6.5";
   if (!/^https?:$/.test(location.protocol)) return;          // offline file: nothing to check
   if (/[?&]v=/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
   const newer = (a, b) => { const x = a.split(".").map(Number), y = b.split(".").map(Number);
