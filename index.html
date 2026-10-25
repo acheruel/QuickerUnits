@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>QuickerUnits</title>
-  <meta name="description" content="QuickerUnits — convertisseur d'unités pour ingénieurs civils et en structure. 100 % hors ligne.">
+  <meta name="description" content="QuickerUnits — convertisseur d'unités pour ingénieurs civils et en structure.">
   <meta name="theme-color" content="#102d41">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23102d41'/%3E%3Ctext x='12' y='47' font-size='48' fill='%2356e0bb' font-family='sans-serif'%3EQ%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%23102d41'/%3E%3Cpath%20d='M13%2023h34m-9-8%209%208-9%208'%20fill='none'%20stroke='%2373e4c2'%20stroke-width='5'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3Cpath%20d='M51%2041H17m9-8-9%208%209%208'%20fill='none'%20stroke='%239cdfcf'%20stroke-width='5'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">
   <style>
 :root{--navy:#102d41;--ink:#17374b;--muted:#667f8e;--line:#dce5eb;--paper:#fff;--bg:#f0f4f7;--teal:#007f78;--mint:#d9f5eb;--mint2:#73e4c2;--amber:#b66c16;--shadow:0 2px 7px #15354a0d;--row:58px;font-family:"Segoe UI",system-ui,Arial,sans-serif;color:var(--ink);font-size:16px}
 *{box-sizing:border-box}
@@ -19,9 +19,13 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid
 .brand{display:flex;align-items:center;gap:12px;font-size:1.48rem;font-weight:650;letter-spacing:-.6px;white-space:nowrap}
 .brand>div>span{font-weight:350;color:#9cdfcf}
 .brand small{display:block;font-weight:500;letter-spacing:1.8px;font-size:.625rem;color:#92adbc;margin-top:4px}
-.brand-mark{position:relative;color:var(--mint2);font-weight:800;font-size:2.5rem;line-height:1}
-.brand-mark>span{position:absolute;font-size:1.2rem;right:-5px;bottom:-4px}
+.brand-mark{flex:none;display:block;width:42px;height:42px;border-radius:10px;box-shadow:0 0 0 1px #ffffff26,0 4px 12px #0006}
+.brand-mark path{stroke-dasharray:60;animation:quDraw 1s cubic-bezier(.3,.7,.2,1) both}
+.brand-mark path+path{animation-delay:.18s}
+@keyframes quDraw{from{stroke-dashoffset:60}to{stroke-dashoffset:0}}
 .header-right{display:flex;gap:22px;align-items:center}
+.gh-link{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;color:#fff;opacity:.85;transition:opacity .15s,background .15s}
+.gh-link:hover{opacity:1;background:#ffffff1f}
 .release-info{display:flex;flex-direction:column;gap:3px;font-size:.8rem;text-align:right;color:#ecf6f5}.release-info small{font-size:.72rem;color:#b5cbd6}
 .language{display:flex;border:1px solid #4b6373;border-radius:6px;padding:3px}
 .language button{padding:5px 9px;border:0;border-radius:4px;background:transparent;color:#c5d8e0;font-size:.875rem;font-weight:600}
@@ -150,16 +154,20 @@ footer b{color:var(--ink);font-weight:600}
 @media(max-width:1500px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:1100px){.topbar{padding:0 18px}main{padding:18px}.bible-hint{display:none}}
 @media(max-width:860px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.bible-grid{grid-template-columns:1fr}.bible-col+.bible-col{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:4px}.release-info{display:none}}
-@media(max-width:560px){.grid{grid-template-columns:1fr}.topbar{height:68px;padding:0 16px}.brand{font-size:1.2rem}.brand small{display:none}.brand-mark{font-size:2rem}main{padding:14px 16px}.eq{font-size:.92rem}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(max-width:560px){.grid{grid-template-columns:1fr}.topbar{height:68px;padding:0 16px}.brand{font-size:1.2rem}.brand small{display:none}.brand-mark{width:34px;height:34px;border-radius:8px}.header-right{gap:10px}main{padding:14px 16px}.eq{font-size:.92rem}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media print{.topbar,.toolbar,.more-wrap,.col-clear,.toast{display:none!important}body{background:#fff}.col,.bible{box-shadow:none}}
   </style>
 </head>
 <body>
   <header class="topbar rv" style="--d:0s">
-    <div class="brand"><span class="brand-mark">Q<span>↗</span></span><div>Quicker<span>Units</span><small data-i18n="brandSub"></small></div></div>
+    <div class="brand"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#102d41"/><path d="M13 23h34m-9-8 9 8-9 8" fill="none" stroke="#73e4c2" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M51 41H17m9-8-9 8 9 8" fill="none" stroke="#9cdfcf" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Quicker<span>Units</span><small data-i18n="brandSub"></small></div></div>
     <div class="header-right">
       <div class="release-info"><b id="release-version"></b><small id="release-date"></small></div>
       <div class="language" role="group" aria-label="Language / Langue"><button id="lang-en" type="button">EN</button><button id="lang-fr" type="button">FR</button></div>
+      <a class="gh-link" id="gh-link" href="https://github.com/acheruel/QuickerUnits" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
     </div>
   </header>
 
@@ -211,7 +219,7 @@ const IN = 0.0254, FT = 0.3048, MI = 1609.344;   // m (exact, 1959)
 const LB = 0.45359237, OZ = LB / 16;                          // kg (exact)
 const LBF = LB * G, KIP = 1000 * LBF;                         // N
 const ARPENT2 = 3418.89;           // arpent carré (Québec) ≈ m²
-const QU_META = { version: "0.5", date: "2026-10-10", author: "Anthony Chéruel" };
+const QU_META = { version: "0.6", date: "2026-10-25", author: "Anthony Chéruel" };
 
 /* ===================== i18n ===================== */
 const T = {
@@ -241,6 +249,7 @@ const T = {
     computed: "Calculé",
     clear: "Vider la colonne",
     footL: "<b>QuickerUnits</b> · facteurs exacts selon les définitions internationales (1959) et NIST SP 811.",
+    ghLink: "Code source sur GitHub",
     sepSI: "SI", sepIMP: "Impérial"
   },
   en: {
@@ -269,6 +278,7 @@ const T = {
     computed: "Computed",
     clear: "Clear column",
     footL: "<b>QuickerUnits</b> · exact factors from the 1959 international definitions and NIST SP 811.",
+    ghLink: "Source code on GitHub",
     sepSI: "SI", sepIMP: "Imperial"
   }
 };
@@ -561,6 +571,8 @@ function renderStatic() {
   if ($("#cmd").value) renderCommand();
   $("#release-version").textContent = `v${QU_META.version} · ${QU_META.author}`;
   $("#release-date").textContent = `${S.lang === "fr" ? "Mise à jour : " : "Updated "}${QU_META.date}`;
+  $("#gh-link").title = t("ghLink");
+  $("#gh-link").setAttribute("aria-label", t("ghLink"));
   $("#lang-fr").classList.toggle("selected", S.lang === "fr");
   $("#lang-en").classList.toggle("selected", S.lang === "en");
   $("#fx-toggle").setAttribute("aria-pressed", String(S.fx));
@@ -936,7 +948,7 @@ arrive();
 </style>
 <script>
 (() => {
-  const MINE = "0.5";
+  const MINE = "0.6";
   if (!/^https?:$/.test(location.protocol)) return;          // offline file: nothing to check
   if (/[?&]v=/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
   const newer = (a, b) => { const x = a.split(".").map(Number), y = b.split(".").map(Number);

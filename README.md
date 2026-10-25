@@ -2,13 +2,13 @@
 
 Unit converter built for civil and structural engineering, in English and French.
 
-**Version 0.5 · Anthony Chéruel · 2026-10-10**
+**Version 0.6 · Anthony Chéruel · 2026-10-25**
 
 **Live app:** https://acheruel.github.io/QuickerUnits/
 
 ## Concept
 
-A single dependency-free HTML file that works fully offline.
+A single dependency-free HTML file.
 
 ## Features
 
@@ -24,6 +24,6 @@ A single dependency-free HTML file that works fully offline.
 
 ## Usage
 
-The live link always serves the latest version; open pages show an update banner. Offline, open `index.html`.
+The live link always serves the latest version; open pages show an update banner.
 
 Factors are exact (1959 international definitions, NIST SP 811; g = 9.80665 m/s²).
